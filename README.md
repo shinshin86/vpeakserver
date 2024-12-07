@@ -1,5 +1,7 @@
 # vpeakserver
 
+![vpeakserver logo](./assets/vpeakserver-logo.jpg)
+
 A lightweight server for vpeak, providing TTS capabilities via RESTful API.
 
 ## Prerequisites
