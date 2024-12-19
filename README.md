@@ -25,7 +25,8 @@ vpeakserver
 - By default, the allowed CORS origin is `http://localhost:3000`.
 - You can specify a different allowed CORS origin using the `-allowed-origin` flag. For example:
   ```sh
-  vpeakserver -allowed-origin=*
+  # Allow access from all origins
+  vpeakserver -allowed-origin="*"
   ```
 
 ## Endpoint
