@@ -112,7 +112,7 @@ func main() {
 		http.ServeFile(w, r, outputFileName)
 	}))
 
-	fmt.Println("Server started at http://localhost:50021")
+	fmt.Println("Server started at http://localhost:20202")
 	fmt.Printf("Starting server with allowed origin: %s\n", allowedOrigin)
-	log.Fatal(http.ListenAndServe(":50021", nil))
+	log.Fatal(http.ListenAndServe(":20202", nil))
 }

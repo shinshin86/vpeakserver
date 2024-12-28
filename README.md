@@ -21,7 +21,7 @@ vpeakserver
 ```
 
 **Note:**
-- By default, the server starts on port `50021`.
+- By default, the server starts on port `20202`.
 - By default, the allowed CORS origin is `http://localhost:3000`.
 - You can specify a different allowed CORS origin using the `-allowed-origin` flag. For example:
   ```sh
