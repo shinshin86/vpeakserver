@@ -69,6 +69,139 @@ func main() {
 	flag.StringVar(&corsPolicyMode, "cors-policy-mode", "localapps", "Set the CORS policy mode (localapps or all)")
 	flag.Parse()
 
+	// Add root handler
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+
+		indexHTML := `<!DOCTYPE html>
+<html lang="ja">
+<head>
+	<meta charset="UTF-8">
+	<title>vpeakserver</title>
+	<style>
+		body {
+			font-family: sans-serif;
+			margin: 20px;
+			line-height: 1.6;
+		}
+		h1 {
+			font-size: 1.5rem;
+			margin-bottom: 1rem;
+		}
+		.container {
+			max-width: 800px;
+			margin: 0 auto;
+		}
+		label {
+			display: block;
+			font-weight: bold;
+			margin: 1rem 0 0.5rem;
+		}
+		select, input[type="text"] {
+			width: 300px;
+			padding: 0.5rem;
+			font-size: 1rem;
+			margin-bottom: 0.5rem;
+		}
+		.lang-switch {
+			position: absolute;
+			top: 20px;
+			right: 20px;
+			display: flex;
+			gap: 10px;
+		}
+		.lang-switch label {
+			margin: initial;
+		}
+		[data-lang="en"] .ja,
+		[data-lang="ja"] .en {
+			display: none;
+		}
+		ul {
+			padding-left: 20px;
+		}
+		li {
+			margin: 10px 0;
+		}
+		a {
+			color: #0066cc;
+			text-decoration: none;
+		}
+		a:hover {
+			text-decoration: underline;
+		}
+	</style>
+</head>
+<body data-lang="{{.Lang}}">
+	<div class="lang-switch">
+		<label for="langSelect">Language</label>
+		<select id="langSelect" onchange="changeLang(this.value)">
+			<option value="ja" {{if eq .Lang "ja"}}selected{{end}}>日本語</option>
+			<option value="en" {{if eq .Lang "en"}}selected{{end}}>English</option>
+		</select>
+	</div>
+
+	<div class="container">
+		<h1>
+			<span class="ja">vpeakserver</span>
+			<span class="en">vpeakserver</span>
+		</h1>
+		<p>
+			<span class="ja">vpeakserverへようこそ！</span>
+			<span class="en">Welcome to vpeakserver!</span>
+		</p>
+		<ul>
+			<li>
+				<a href="/setting">
+					<span class="ja">設定</span>
+					<span class="en">Settings</span>
+				</a>
+			</li>
+		</ul>
+	</div>
+
+	<script>
+		function changeLang(lang) {
+			document.body.setAttribute('data-lang', lang);
+			localStorage.setItem('vpeakserver-lang', lang);
+		}
+
+		// 言語設定の初期化
+		const savedLang = localStorage.getItem('vpeakserver-lang');
+		if (savedLang) {
+			document.body.setAttribute('data-lang', savedLang);
+			document.getElementById('langSelect').value = savedLang;
+		}
+	</script>
+</body>
+</html>`
+
+		tmpl, err := template.New("index").Parse(indexHTML)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to parse template: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Get language preference from localStorage or default to Japanese
+		lang := "ja"
+		if langCookie, err := r.Cookie("lang"); err == nil {
+			lang = langCookie.Value
+		}
+
+		data := SettingsData{
+			Lang: lang,
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if err := tmpl.Execute(w, data); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
+			return
+		}
+	})
+
 	http.HandleFunc("/audio_query", enableCORS(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
