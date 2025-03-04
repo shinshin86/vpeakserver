@@ -166,11 +166,11 @@ func main() {
 	<script>
 		function changeLang(lang) {
 			document.body.setAttribute('data-lang', lang);
-			localStorage.setItem('vpeakserver-lang', lang);
+			localStorage.setItem('vpeakserver.selectedLang', lang);
 		}
 
-		// 言語設定の初期化
-		const savedLang = localStorage.getItem('vpeakserver-lang');
+		// initialize language setting
+		const savedLang = localStorage.getItem('vpeakserver.selectedLang');
 		if (savedLang) {
 			document.body.setAttribute('data-lang', savedLang);
 			document.getElementById('langSelect').value = savedLang;
@@ -387,11 +387,11 @@ func main() {
 
     function changeLang(lang) {
       document.body.setAttribute('data-lang', lang);
-      localStorage.setItem('vpeakserver-lang', lang);
+      localStorage.setItem('vpeakserver.selectedLang', lang);
     }
 
-    // 言語設定の初期化
-    const savedLang = localStorage.getItem('vpeakserver-lang');
+    // initialize language setting
+    const savedLang = localStorage.getItem('vpeakserver.selectedLang');
     if (savedLang) {
       document.body.setAttribute('data-lang', savedLang);
       document.getElementById('langSelect').value = savedLang;
