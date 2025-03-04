@@ -343,13 +343,13 @@ func main() {
   </h1>
 
   <div class="alert">
-    <span class="ja">変更を反映するには音声合成エンジンの再起動が必要です。</span>
-    <span class="en">Server restart is required to apply changes.</span>
+    <span class="ja">変更は即座に反映されます。</span>
+    <span class="en">Changes are applied immediately.</span>
   </div>
 
   <div id="successMessage" class="success-message">
-    <span class="ja">設定が保存されました。変更を完全に適用するには音声合成エンジンの再起動が必要です。</span>
-    <span class="en">Settings saved. Server restart is required to fully apply the changes.</span>
+    <span class="ja">設定が保存されました。</span>
+    <span class="en">Settings saved.</span>
   </div>
 
   <form id="settingsForm">
