@@ -26,6 +26,7 @@ type AudioQuery struct {
 type SettingsData struct {
 	CorsPolicyMode string
 	AllowOrigin    string
+	Lang           string
 }
 
 // Middleware to handle CORS
@@ -143,7 +144,7 @@ func main() {
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>vpeakserver 設定</title>
+  <title>vpeakserver Settings</title>
   <style>
     body {
       font-family: sans-serif;
@@ -154,7 +155,7 @@ func main() {
       margin-bottom: 1rem;
     }
     .alert {
-      background-color: #fff7d5; /* 薄い黄色 */
+      background-color: #fff7d5;
       padding: 1rem;
       margin-bottom: 1.5rem;
       border: 1px solid #f0e9c6;
@@ -183,18 +184,39 @@ func main() {
       border: 1px solid #c3e6cb;
       display: none;
     }
+    .lang-switch {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+    [data-lang="en"] .ja,
+    [data-lang="ja"] .en {
+      display: none;
+    }
   </style>
 </head>
-<body>
+<body data-lang="{{.Lang}}">
+  <div class="lang-switch" style="display: flex; gap: 10px;">
+    <label for="langSelect" style="margin: initial;">Language</label>
+    <select id="langSelect" onchange="changeLang(this.value)">
+      <option value="ja" {{if eq .Lang "ja"}}selected{{end}}>日本語</option>
+      <option value="en" {{if eq .Lang "en"}}selected{{end}}>English</option>
+    </select>
+  </div>
 
-  <h1>vpeakserver 設定</h1>
+  <h1>
+    <span class="ja">vpeakserver 設定</span>
+    <span class="en">vpeakserver Settings</span>
+  </h1>
 
   <div class="alert">
-    変更を反映するには音声合成エンジンの再起動が必要です。
+    <span class="ja">変更を反映するには音声合成エンジンの再起動が必要です。</span>
+    <span class="en">Server restart is required to apply changes.</span>
   </div>
 
   <div id="successMessage" class="success-message">
-    設定が保存されました。変更を完全に適用するには音声合成エンジンの再起動が必要です。
+    <span class="ja">設定が保存されました。変更を完全に適用するには音声合成エンジンの再起動が必要です。</span>
+    <span class="en">Settings saved. Server restart is required to fully apply the changes.</span>
   </div>
 
   <form id="settingsForm">
@@ -204,23 +226,43 @@ func main() {
       <option value="all" {{if eq .CorsPolicyMode "all"}}selected{{end}}>all</option>
     </select>
     <div class="description">
-      <strong>localapps</strong> はオリジン間リソース共有ポリシーを、
-      <code>app://</code> と <code>localhost</code> 関連に限定します。<br>
-      その他のオリジンは <strong>Allow Origin</strong> オプションで追加できます。<br>
-      <strong>all</strong> はすべてを許可します。危険性を理解した上でご利用ください。
+      <span class="ja">
+        <strong>localapps</strong> はオリジン間リソース共有ポリシーを、
+        <code>app://</code> と <code>localhost</code> 関連に限定します。<br>
+        その他のオリジンは <strong>Allow Origin</strong> オプションで追加できます。<br>
+        <strong>all</strong> はすべてを許可します。危険性を理解した上でご利用ください。
+      </span>
+      <span class="en">
+        <strong>localapps</strong> restricts CORS policy to <code>app://</code> and <code>localhost</code> related origins.<br>
+        Additional origins can be added using the <strong>Allow Origin</strong> option.<br>
+        <strong>all</strong> allows all origins. Please use with caution.
+      </span>
     </div>
 
     <label for="allowOrigin">Allow Origin</label>
     <input id="allowOrigin" name="allowOrigin" type="text" 
            value="{{.AllowOrigin}}">
     <div class="description">
-      許可するオリジンを指定します。スペースで区切ることで複数指定できます。
+      <span class="ja">許可するオリジンを指定します。スペースで区切ることで複数指定できます。</span>
+      <span class="en">Specify allowed origins. Multiple origins can be specified by separating with spaces.</span>
     </div>
   </form>
 
   <script>
     document.getElementById('corsPolicyMode').addEventListener('change', saveSettings);
     document.getElementById('allowOrigin').addEventListener('blur', saveSettings);
+
+    function changeLang(lang) {
+      document.body.setAttribute('data-lang', lang);
+      localStorage.setItem('vpeakserver-lang', lang);
+    }
+
+    // 言語設定の初期化
+    const savedLang = localStorage.getItem('vpeakserver-lang');
+    if (savedLang) {
+      document.body.setAttribute('data-lang', savedLang);
+      document.getElementById('langSelect').value = savedLang;
+    }
 
     function saveSettings() {
       const corsPolicyMode = document.getElementById('corsPolicyMode').value;
@@ -246,7 +288,8 @@ func main() {
         }
       })
       .catch(error => {
-        console.error('設定の保存中にエラーが発生しました:', error);
+        const lang = document.body.getAttribute('data-lang');
+        console.error(lang === 'ja' ? '設定の保存中にエラーが発生しました:' : 'Error saving settings:', error);
       });
     }
   </script>
@@ -259,9 +302,16 @@ func main() {
 				return
 			}
 
+			// Get language preference from cookie or default to Japanese
+			lang := "ja"
+			if langCookie, err := r.Cookie("lang"); err == nil {
+				lang = langCookie.Value
+			}
+
 			data := SettingsData{
 				CorsPolicyMode: corsPolicyMode,
 				AllowOrigin:    allowedOrigin,
+				Lang:           lang,
 			}
 
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
