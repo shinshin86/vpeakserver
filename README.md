@@ -22,11 +22,16 @@ vpeakserver
 
 **Note:**
 - By default, the server starts on port `20202`.
-- By default, the allowed CORS origin is `http://localhost:3000`.
-- You can specify a different allowed CORS origin using the `-allowed-origin` flag. For example:
+- By default, CORS policy mode is set to `localapps`, which automatically allows requests from `localhost` and `app://` origins.
+- You can specify additional allowed CORS origins using the `-allowed-origin` flag. For example:
   ```sh
-  # Allow access from all origins
-  vpeakserver -allowed-origin="*"
+  # Allow access from example.com
+  vpeakserver -allowed-origin="https://example.com"
+  ```
+- You can also set the CORS policy mode using the `-cors-policy-mode` flag:
+  ```sh
+  # Set CORS policy mode to 'all'
+  vpeakserver -cors-policy-mode="all"
   ```
 
 ## Endpoint
@@ -34,6 +39,7 @@ This repository provides a simple HTTP server for handling audio synthesis reque
 
 1. `/audio_query`: Accepts a POST request with query parameters to return a JSON-encoded `AudioQuery`.
 2. `/synthesis`: Accepts a POST request with a JSON body that generates and returns an audio file (`.wav`) synthesized using the specified text and speaker.
+3. `/setting`: Provides a web interface for configuring CORS settings.
 
 ## Features
 - **Audio Query Endpoint**:  
@@ -47,4 +53,12 @@ This repository provides a simple HTTP server for handling audio synthesis reque
 
 - **CORS Support**:  
   Configurable via the `-allowed-origin` flag, allowing cross-origin requests from a specified domain (default: `http://localhost:3000`) or from any origin by setting `-allowed-origin=*`.
+
+- **Settings Web Interface**:  
+  Access http://localhost:20202/setting to configure CORS policies through a user-friendly web interface. The settings page allows you to:
+  - Choose between different CORS policy modes:
+    - `localapps`: Restricts CORS to `app://` and `localhost` origins, plus any additional origins specified
+    - `all`: Allows all origins (equivalent to setting `-allowed-origin="*"`)
+  - Add specific allowed origins (space-separated for multiple origins)
+  - Changes to these settings take effect immediately but require a server restart for complete application.
 
