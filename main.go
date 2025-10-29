@@ -8,10 +8,18 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/shinshin86/vpeak"
+)
+
+const (
+	speedMin = 50
+	speedMax = 200
+	pitchMin = -300
+	pitchMax = 300
 )
 
 var allowedOrigin string
@@ -21,12 +29,50 @@ type AudioQuery struct {
 	Text    string `json:"text"`
 	Speaker string `json:"speaker"`
 	Emotion string `json:"emotion"`
+	Speed   *int   `json:"speed,omitempty"`
+	Pitch   *int   `json:"pitch,omitempty"`
 }
 
 type SettingsData struct {
 	CorsPolicyMode string
 	AllowOrigin    string
 	Lang           string
+}
+
+var validEmotions = map[string]bool{
+	"happy": true,
+	"fun":   true,
+	"angry": true,
+	"sad":   true,
+}
+
+func parseOptionalIntParam(raw string, min, max int) (*int, error) {
+	if raw == "" {
+		return nil, nil
+	}
+
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert to integer: %w", err)
+	}
+
+	if value < min || value > max {
+		return nil, fmt.Errorf("value must be between %d and %d", min, max)
+	}
+
+	return &value, nil
+}
+
+func validateOptionalRange(value *int, min, max int) error {
+	if value == nil {
+		return nil
+	}
+
+	val := *value
+	if val < min || val > max {
+		return fmt.Errorf("value must be between %d and %d", min, max)
+	}
+	return nil
 }
 
 // Middleware to handle CORS
@@ -210,15 +256,35 @@ func main() {
 
 		text := r.URL.Query().Get("text")
 		speaker := r.URL.Query().Get("speaker")
+		emotion := r.URL.Query().Get("emotion")
 
 		if text == "" || speaker == "" {
 			http.Error(w, "Missing required parameters: text and speaker", http.StatusBadRequest)
 			return
 		}
 
+		speed, err := parseOptionalIntParam(r.URL.Query().Get("speed"), speedMin, speedMax)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Invalid speed parameter: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		pitch, err := parseOptionalIntParam(r.URL.Query().Get("pitch"), pitchMin, pitchMax)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Invalid pitch parameter: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		if !validEmotions[emotion] {
+			emotion = ""
+		}
+
 		audioQuery := AudioQuery{
 			Text:    text,
 			Speaker: speaker,
+			Emotion: emotion,
+			Speed:   speed,
+			Pitch:   pitch,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -240,14 +306,18 @@ func main() {
 			return
 		}
 
-		validEmotions := map[string]bool{
-			"happy": true,
-			"fun":   true,
-			"angry": true,
-			"sad":   true,
-		}
 		if !validEmotions[query.Emotion] {
 			query.Emotion = ""
+		}
+
+		if err := validateOptionalRange(query.Speed, speedMin, speedMax); err != nil {
+			http.Error(w, fmt.Sprintf("Invalid speed: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		if err := validateOptionalRange(query.Pitch, pitchMin, pitchMax); err != nil {
+			http.Error(w, fmt.Sprintf("Invalid pitch: %v", err), http.StatusBadRequest)
+			return
 		}
 
 		outputFileName := fmt.Sprintf("audio-%s.wav", uuid.New().String())
@@ -257,6 +327,8 @@ func main() {
 			Emotion:  query.Emotion,
 			Output:   outputFileName,
 			Silent:   true,
+			Speed:    query.Speed,
+			Pitch:    query.Pitch,
 		}
 
 		if err := vpeak.GenerateSpeech(query.Text, opts); err != nil {

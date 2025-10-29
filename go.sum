@@ -4,3 +4,5 @@ github.com/shinshin86/vpeak v0.0.0-20241201223727-a1eba30e4342 h1:GqV4i/ikVZSXb5
 github.com/shinshin86/vpeak v0.0.0-20241201223727-a1eba30e4342/go.mod h1:yYLDKkGnHWJyaDTpj3tByMlEng8mfO73O5U3WsqB9LY=
 github.com/shinshin86/vpeak v0.0.0-20241203102406-02c929ea461c h1:mVF9szmL0hY8n6lCWoHWV8rCg/p5mzCfI18PMrAYOug=
 github.com/shinshin86/vpeak v0.0.0-20241203102406-02c929ea461c/go.mod h1:yYLDKkGnHWJyaDTpj3tByMlEng8mfO73O5U3WsqB9LY=
+github.com/shinshin86/vpeak v0.0.0-20251028121534-cf2982f7a73a h1:wLLvLwNUb7vS6sBx+IYN5nbCdgCU0OEQpJCrqTOAoVo=
+github.com/shinshin86/vpeak v0.0.0-20251028121534-cf2982f7a73a/go.mod h1:yYLDKkGnHWJyaDTpj3tByMlEng8mfO73O5U3WsqB9LY=
