@@ -24,6 +24,7 @@ const (
 
 var allowedOrigin string
 var corsPolicyMode string
+var version = "dev"
 
 type AudioQuery struct {
 	Text    string `json:"text"`
@@ -111,9 +112,15 @@ func containsOrigin(allowedOrigins string, origin string) bool {
 }
 
 func main() {
+	var showVersion bool
 	flag.StringVar(&allowedOrigin, "allowed-origin", "", "Set the allowed CORS origin")
 	flag.StringVar(&corsPolicyMode, "cors-policy-mode", "localapps", "Set the CORS policy mode (localapps or all)")
+	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.Parse()
+	if showVersion {
+		fmt.Println(version)
+		return
+	}
 
 	// Add root handler
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

@@ -8,16 +8,57 @@ A lightweight server for vpeak, providing TTS capabilities via RESTful API.
 - **Local VOICEPEAK Installation**:
 Ensure that [VOICEPEAK](https://www.ah-soft.com/voice/6nare/)  are installed locally on your machine. Refer to their official documentation for installation steps.
 
-## Installation & Usage
+## Installation (Recommended)
 
+### macOS (curl)
 ```sh
-go install github.com/shinshin86/vpeakserver@latest
+curl -fsSL https://raw.githubusercontent.com/shinshin86/vpeakserver/main/install.sh | bash
+```
+
+### Windows (PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/shinshin86/vpeakserver/main/install.ps1 | iex
 ```
 
 After installation, run the server:
 
 ```
 vpeakserver
+```
+
+Verify the version:
+
+```
+vpeakserver --version
+```
+
+### Update
+Re-run the install command above to update to the latest version.
+
+Install a specific version:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/shinshin86/vpeakserver/main/install.sh | bash -- vX.Y.Z
+```
+
+```powershell
+irm https://raw.githubusercontent.com/shinshin86/vpeakserver/main/install.ps1 -OutFile install.ps1
+.\install.ps1 -Version vX.Y.Z
+```
+
+### Uninstall
+```sh
+rm ~/.local/bin/vpeakserver
+```
+
+```powershell
+Remove-Item "$env:LOCALAPPDATA\\Programs\\vpeakserver\\vpeakserver.exe"
+```
+
+## Installation (Go)
+
+```sh
+go install github.com/shinshin86/vpeakserver@latest
 ```
 
 **Note:**

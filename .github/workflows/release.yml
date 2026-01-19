@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+            runner: macos-13
+          - goos: darwin
+            goarch: arm64
+            runner: macos-14
+          - goos: windows
+            goarch: amd64
+            runner: windows-latest
+          - goos: windows
+            goarch: arm64
+            runner: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          EXT=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            EXT=".exe"
+          fi
+
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 \
+          go build -ldflags="-s -w -X main.version=${VERSION}" -o vpeakserver${EXT} .
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          EXT=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            EXT=".exe"
+          fi
+
+          ASSET="vpeakserver_${TAG}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          mkdir -p dist
+          cp "vpeakserver${EXT}" "dist/${ASSET}${EXT}"
+          tar -czf "dist/${ASSET}.tar.gz" -C dist "${ASSET}${EXT}"
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vpeakserver_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist/*.tar.gz
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          find . -name "*.tar.gz" -exec sha256sum {} \; | sort -k 2 > checksums.txt
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/**/*.tar.gz
+            dist/checksums.txt
