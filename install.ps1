@@ -1,113 +1,88 @@
-param(
-  [string]$Version = "latest"
-)
+param([string]$Version = "latest")
 
-Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-
 $Owner = "shinshin86"
 $Repo = "vpeakserver"
 $BinName = "vpeakserver.exe"
+$BinDir = if ($env:BIN_DIR) { $env:BIN_DIR } else { "$env:LOCALAPPDATA\Programs\vpeakserver" }
 
-function Write-Info {
-  param ([string]$Message)
-  Write-Host $Message -ForegroundColor Cyan
-}
-
-function Write-Err {
-  param ([string]$Message)
-  Write-Host "error: $Message" -ForegroundColor Red
+function Write-Err($Message) {
+  Write-Host "ERROR: $Message" -ForegroundColor Red
   exit 1
 }
 
-function Need-Command {
-  param ([string]$Cmd)
-  if (-not (Get-Command $Cmd -ErrorAction SilentlyContinue)) {
-    Write-Err "$Cmd is required but not found in PATH."
-  }
+function Write-Info($Message) {
+  Write-Host $Message -ForegroundColor Cyan
 }
 
-Need-Command "curl"
-Need-Command "tar"
-
-$OS = $env:OS
-if ($OS -ne "Windows_NT") {
-  Write-Err "unsupported OS: $OS"
+if ($env:OS -ne "Windows_NT") {
+  Write-Err "Unsupported OS: $($env:OS)"
 }
 
-$ArchRaw = $env:PROCESSOR_ARCHITECTURE
-switch ($ArchRaw) {
-  "AMD64" { $Arch = "amd64" }
-  "ARM64" { $Arch = "arm64" }
-  default { Write-Err "unsupported architecture: $ArchRaw" }
+$Arch = switch ($env:PROCESSOR_ARCHITECTURE) {
+  "AMD64" { "amd64" }
+  "ARM64" { "arm64" }
+  default { Write-Err "Unsupported architecture: $($env:PROCESSOR_ARCHITECTURE)" }
+}
+
+if ($Version -ne "latest" -and $Version -notmatch '^v\d+\.\d+\.\d+$') {
+  Write-Err "Invalid version format. Use vX.Y.Z or 'latest'."
 }
 
 if ($Version -eq "latest") {
-  $Latest = (curl -fsSL "https://api.github.com/repos/$Owner/$Repo/releases/latest" | ConvertFrom-Json)
-  $Tag = $Latest.tag_name
-} elseif ($Version -match '^v\d+\.\d+\.\d+$') {
-  $Tag = $Version
-} else {
-  Write-Err "invalid version format: $Version (expected vX.Y.Z or 'latest')"
+  $Version = (curl --retry 3 -fL "https://api.github.com/repos/$Owner/$Repo/releases/latest" | ConvertFrom-Json).tag_name
 }
 
-$AssetBase = "vpeakserver_${Tag}_windows_${Arch}"
-$Asset = "${AssetBase}.tar.gz"
-$Checksums = "checksums.txt"
-$BaseUrl = "https://github.com/$Owner/$Repo/releases/download/$Tag"
+if (-not $Version) {
+  Write-Err "Failed to determine the latest version."
+}
 
-$TempDir = Join-Path $env:TEMP "vpeakserver-install-$(Get-Date -Format yyyyMMddHHmmss)"
-New-Item -ItemType Directory -Path $TempDir | Out-Null
+$Asset = "vpeakserver_${Version}_windows_${Arch}.zip"
+$BaseUrl = "https://github.com/$Owner/$Repo/releases/download/$Version"
+
+$TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("vpeakserver-install-" + [System.IO.Path]::GetRandomFileName())
+New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
 
 Write-Info "Downloading checksums..."
-curl -fsSL "$BaseUrl/$Checksums" -o (Join-Path $TempDir $Checksums)
+$ChecksumsPath = Join-Path $TempDir "checksums.txt"
+curl --retry 3 -fL "$BaseUrl/checksums.txt" -o $ChecksumsPath
 
-$ExpectedHash = (Get-Content (Join-Path $TempDir $Checksums) | Where-Object { $_ -match $Asset } | ForEach-Object { ($_ -split ' ')[0] })
-if (-not $ExpectedHash) {
-  Write-Err "checksum entry for $Asset not found"
+$ExpectedChecksum = (Select-String -Path $ChecksumsPath -Pattern " $Asset$").Line.Split(' ')[0]
+if (-not $ExpectedChecksum) {
+  Write-Err "Checksum not found for $Asset in checksums.txt"
 }
 
 Write-Info "Downloading $Asset..."
-curl -fsSL "$BaseUrl/$Asset" -o (Join-Path $TempDir $Asset)
+$AssetPath = Join-Path $TempDir $Asset
+curl --retry 3 -fL "$BaseUrl/$Asset" -o $AssetPath
 
-$ActualHash = (Get-FileHash (Join-Path $TempDir $Asset) -Algorithm SHA256).Hash.ToLower()
-if ($ExpectedHash.ToLower() -ne $ActualHash) {
-  Write-Err "checksum mismatch: expected $ExpectedHash, got $ActualHash"
+$ActualChecksum = (Get-FileHash $AssetPath -Algorithm SHA256).Hash
+if ($ExpectedChecksum.ToLower() -ne $ActualChecksum.ToLower()) {
+  Write-Err "Checksum mismatch: expected $ExpectedChecksum, got $ActualChecksum"
 }
 
-Write-Info "Extracting..."
-tar -xzf (Join-Path $TempDir $Asset) -C $TempDir
+Expand-Archive -Path $AssetPath -DestinationPath $TempDir -Force
 
-$BinaryNameInArchive = "${AssetBase}.exe"
-$BinaryPath = Join-Path $TempDir $BinaryNameInArchive
-if (-not (Test-Path $BinaryPath)) {
-  Write-Err "binary not found after extraction: $BinaryPath"
+$BinPath = Join-Path $TempDir $BinName
+if (-not (Test-Path $BinPath)) {
+  Write-Err "Binary not found after extraction."
 }
 
-$InstallDir = Join-Path $env:LOCALAPPDATA "Programs\\vpeakserver"
-New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 
-$TargetPath = Join-Path $InstallDir $BinName
+$TargetPath = Join-Path $BinDir $BinName
 if (Test-Path $TargetPath) {
-  $Backup = "$TargetPath.bak-$(Get-Date -Format yyyyMMddHHmmss)"
-  Copy-Item $TargetPath $Backup
-  Write-Info "Backed up existing binary to $Backup"
+  Copy-Item $TargetPath "$TargetPath.bak" -Force
+  Write-Info "Existing binary backed up to $TargetPath.bak"
 }
 
-Copy-Item $BinaryPath $TargetPath -Force
-Write-Info "Installed to $TargetPath"
+Copy-Item -Force $BinPath $TargetPath
+Write-Info "Installed $BinName to $TargetPath"
 
-if ($env:Path -notlike "*$InstallDir*") {
-  Write-Info "Adding $InstallDir to PATH (user scope)..."
-  $CurrentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-  if (-not $CurrentPath) {
-    $CurrentPath = ""
-  }
-  if ($CurrentPath -notlike "*$InstallDir*") {
-    $NewPath = "$InstallDir;$CurrentPath"
-    [Environment]::SetEnvironmentVariable("Path", $NewPath, "User")
-    Write-Info "PATH updated. You may need to restart your terminal."
-  }
+$PathValue = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($PathValue -notlike "*$BinDir*") {
+  [Environment]::SetEnvironmentVariable("Path", "$BinDir;$PathValue", "User")
+  Write-Info "Added $BinDir to your user PATH. Restart your terminal to apply."
 }
 
-Write-Info "Done. Run: vpeakserver --version"
+Write-Info "Done! Run 'vpeakserver --version' to verify."
