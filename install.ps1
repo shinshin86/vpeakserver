@@ -15,6 +15,29 @@ function Write-Info($Message) {
   Write-Host $Message -ForegroundColor Cyan
 }
 
+function Invoke-Download {
+  param(
+    [Parameter(Mandatory = $true)][string]$Uri,
+    [Parameter(Mandatory = $true)][string]$OutFile
+  )
+
+  $params = @{ Uri = $Uri; OutFile = $OutFile; MaximumRedirection = 5 }
+  if ($PSVersionTable.PSVersion.Major -lt 6) {
+    $params.UseBasicParsing = $true
+  }
+
+  $maxRetries = 3
+  for ($i = 1; $i -le $maxRetries; $i++) {
+    try {
+      Invoke-WebRequest @params
+      return
+    } catch {
+      if ($i -eq $maxRetries) { throw }
+      Start-Sleep -Seconds (2 * $i)
+    }
+  }
+}
+
 if ($env:OS -ne "Windows_NT") {
   Write-Err "Unsupported OS: $($env:OS)"
 }
@@ -30,7 +53,11 @@ if ($Version -ne "latest" -and $Version -notmatch '^v\d+\.\d+\.\d+$') {
 }
 
 if ($Version -eq "latest") {
-  $Version = (curl --retry 3 -fL "https://api.github.com/repos/$Owner/$Repo/releases/latest" | ConvertFrom-Json).tag_name
+  $latestParams = @{ Uri = "https://api.github.com/repos/$Owner/$Repo/releases/latest" }
+  if ($PSVersionTable.PSVersion.Major -lt 6) {
+    $latestParams.UseBasicParsing = $true
+  }
+  $Version = (Invoke-RestMethod @latestParams).tag_name
 }
 
 if (-not $Version) {
@@ -45,7 +72,7 @@ New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
 
 Write-Info "Downloading checksums..."
 $ChecksumsPath = Join-Path $TempDir "checksums.txt"
-curl --retry 3 -fL "$BaseUrl/checksums.txt" -o $ChecksumsPath
+Invoke-Download -Uri "$BaseUrl/checksums.txt" -OutFile $ChecksumsPath
 
 $ExpectedChecksum = (Select-String -Path $ChecksumsPath -Pattern " $Asset$").Line.Split(' ')[0]
 if (-not $ExpectedChecksum) {
@@ -54,7 +81,7 @@ if (-not $ExpectedChecksum) {
 
 Write-Info "Downloading $Asset..."
 $AssetPath = Join-Path $TempDir $Asset
-curl --retry 3 -fL "$BaseUrl/$Asset" -o $AssetPath
+Invoke-Download -Uri "$BaseUrl/$Asset" -OutFile $AssetPath
 
 $ActualChecksum = (Get-FileHash $AssetPath -Algorithm SHA256).Hash
 if ($ExpectedChecksum.ToLower() -ne $ActualChecksum.ToLower()) {
