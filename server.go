@@ -22,13 +22,6 @@ const (
 	pitchMax = 300
 )
 
-var validEmotions = map[string]bool{
-	"happy": true,
-	"fun":   true,
-	"angry": true,
-	"sad":   true,
-}
-
 type serverConfig struct {
 	allowedOrigin  string
 	corsPolicyMode string
@@ -50,8 +43,9 @@ type SettingsData struct {
 }
 
 type Server struct {
-	mux    *http.ServeMux
-	logger *log.Logger
+	mux             *http.ServeMux
+	logger          *log.Logger
+	speechGenerator func(text string, opts vpeak.Options) error
 
 	configMu       sync.RWMutex
 	allowedOrigin  string
@@ -63,6 +57,7 @@ func NewServer(cfg serverConfig, logger *log.Logger) *Server {
 	s := &Server{
 		mux:            http.NewServeMux(),
 		logger:         logger,
+		speechGenerator: vpeak.GenerateSpeech,
 		allowedOrigin:  cfg.allowedOrigin,
 		corsPolicyMode: cfg.corsPolicyMode,
 		userDictPath:   cfg.userDictPath,
@@ -115,6 +110,19 @@ func validateOptionalRange(value *int, min, max int) error {
 		return fmt.Errorf("value must be between %d and %d", min, max)
 	}
 	return nil
+}
+
+func validateEmotionOption(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+
+	if _, err := vpeak.ParseEmotion(raw); err != nil {
+		return "", err
+	}
+
+	return raw, nil
 }
 
 func containsOrigin(allowedOrigins string, origin string) bool {
@@ -202,8 +210,10 @@ func (s *Server) handleAudioQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !validEmotions[emotion] {
-		emotion = ""
+	emotion, err = validateEmotionOption(emotion)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Invalid emotion parameter: %v", err), http.StatusBadRequest)
+		return
 	}
 
 	audioQuery := AudioQuery{
@@ -229,9 +239,12 @@ func (s *Server) handleSynthesis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !validEmotions[query.Emotion] {
-		query.Emotion = ""
+	validatedEmotion, err := validateEmotionOption(query.Emotion)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Invalid emotion: %v", err), http.StatusBadRequest)
+		return
 	}
+	query.Emotion = validatedEmotion
 
 	if err := validateOptionalRange(query.Speed, speedMin, speedMax); err != nil {
 		http.Error(w, fmt.Sprintf("Invalid speed: %v", err), http.StatusBadRequest)
@@ -254,7 +267,7 @@ func (s *Server) handleSynthesis(w http.ResponseWriter, r *http.Request) {
 		Pitch:    query.Pitch,
 	}
 
-	if err := vpeak.GenerateSpeech(query.Text, opts); err != nil {
+	if err := s.speechGenerator(query.Text, opts); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to generate speech: %v", err), http.StatusInternalServerError)
 		return
 	}
