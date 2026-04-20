@@ -43,8 +43,9 @@ type SettingsData struct {
 }
 
 type Server struct {
-	mux    *http.ServeMux
-	logger *log.Logger
+	mux             *http.ServeMux
+	logger          *log.Logger
+	speechGenerator func(text string, opts vpeak.Options) error
 
 	configMu       sync.RWMutex
 	allowedOrigin  string
@@ -56,6 +57,7 @@ func NewServer(cfg serverConfig, logger *log.Logger) *Server {
 	s := &Server{
 		mux:            http.NewServeMux(),
 		logger:         logger,
+		speechGenerator: vpeak.GenerateSpeech,
 		allowedOrigin:  cfg.allowedOrigin,
 		corsPolicyMode: cfg.corsPolicyMode,
 		userDictPath:   cfg.userDictPath,
@@ -265,7 +267,7 @@ func (s *Server) handleSynthesis(w http.ResponseWriter, r *http.Request) {
 		Pitch:    query.Pitch,
 	}
 
-	if err := vpeak.GenerateSpeech(query.Text, opts); err != nil {
+	if err := s.speechGenerator(query.Text, opts); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to generate speech: %v", err), http.StatusInternalServerError)
 		return
 	}
