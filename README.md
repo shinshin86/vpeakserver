@@ -126,7 +126,7 @@ The user dictionary API operates on VOICEPEAK's native dictionary format through
 - `DELETE /user_dict_word/by-surface/{surface}`
   Deletes an existing entry by `surface`.
 - `POST /import_user_dict?override=true|false`
-  Accepts VOICEPEAK's native dictionary JSON array.
+  Accepts VOICEPEAK's native dictionary JSON array. When `override=true`, a single existing entry with the same `surface` is replaced. When `override=false`, a conflicting `surface` returns `409 Conflict`. If multiple existing entries already share the same `surface`, the import also returns `409 Conflict`.
 
 ### Validation Policy
 
@@ -136,6 +136,7 @@ The user dictionary API operates on VOICEPEAK's native dictionary format through
 - `pronunciation` must be Katakana.
 - `surface` is trimmed and minimally normalized for full-width ASCII characters and spaces.
 - Duplicate `surface` values are rejected on create and import.
+- `POST /import_user_dict?override=false` returns `409` when an imported entry matches an existing `surface`.
 - `PUT` / `DELETE` by surface returns `404` when no entry matches and `409` when multiple entries share the same `surface`.
 - Malformed JSON bodies are treated as validation errors and return `422`.
 
