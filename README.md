@@ -98,7 +98,7 @@ This repository provides a simple HTTP server for handling audio synthesis reque
   Adds a VOICEPEAK-native user dictionary API. The server updates VOICEPEAK's actual `dic.json` through [vpeak](https://github.com/shinshin86/vpeak); it does not maintain a separate preprocessing dictionary.
 
 - **Voice Parameter Control**:  
-  - `emotion`: Supports `happy`, `fun`, `angry`, `sad`. Any other value will be ignored.  
+  - `emotion`: Supports `happy`, `fun`, `angry`, `sad` with optional `0`-`100` weights. Examples: `happy`, `happy=50`, `happy=40,fun=60`. Invalid values return `400 Bad Request`.  
   - `speed`: Integer in the range `50`–`200`.  
   - `pitch`: Integer in the range `-300`–`300`.
 
