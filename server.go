@@ -46,6 +46,7 @@ type Server struct {
 	mux             *http.ServeMux
 	logger          *log.Logger
 	speechGenerator func(text string, opts vpeak.Options) error
+	narratorLister  func() ([]string, error)
 
 	configMu       sync.RWMutex
 	allowedOrigin  string
@@ -55,12 +56,13 @@ type Server struct {
 
 func NewServer(cfg serverConfig, logger *log.Logger) *Server {
 	s := &Server{
-		mux:            http.NewServeMux(),
-		logger:         logger,
+		mux:             http.NewServeMux(),
+		logger:          logger,
 		speechGenerator: vpeak.GenerateSpeech,
-		allowedOrigin:  cfg.allowedOrigin,
-		corsPolicyMode: cfg.corsPolicyMode,
-		userDictPath:   cfg.userDictPath,
+		narratorLister:  vpeak.ListNarrators,
+		allowedOrigin:   cfg.allowedOrigin,
+		corsPolicyMode:  cfg.corsPolicyMode,
+		userDictPath:    cfg.userDictPath,
 	}
 
 	s.registerRoutes()
@@ -73,6 +75,7 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/", s.handleRoot)
+	s.mux.HandleFunc("/speakers", s.enableCORS(s.handleSpeakers))
 	s.mux.HandleFunc("/audio_query", s.enableCORS(s.handleAudioQuery))
 	s.mux.HandleFunc("/synthesis", s.enableCORS(s.handleSynthesis))
 	s.mux.HandleFunc("/user_dict", s.enableCORS(s.handleUserDict))
@@ -112,14 +115,41 @@ func validateOptionalRange(value *int, min, max int) error {
 	return nil
 }
 
+// validateEmotionOption checks an emotion expression syntactically and returns
+// the trimmed value. Any emotion name is accepted so that narrator-specific
+// emotions (character products, add-on narrators) work; whether a name is
+// actually supported is left to VOICEPEAK. Weights must be integers in 0-100.
 func validateEmotionOption(raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return "", nil
 	}
 
-	if _, err := vpeak.ParseEmotion(raw); err != nil {
-		return "", err
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			return "", fmt.Errorf("empty emotion segment")
+		}
+
+		name, value, hasValue := strings.Cut(part, "=")
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return "", fmt.Errorf("empty emotion name")
+		}
+		if !hasValue {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return "", fmt.Errorf("empty emotion value for %s", name)
+		}
+		weight, err := strconv.Atoi(value)
+		if err != nil {
+			return "", fmt.Errorf("invalid emotion weight for %s: %w", name, err)
+		}
+		if weight < 0 || weight > 100 {
+			return "", fmt.Errorf("emotion weight for %s must be between 0 and 100", name)
+		}
 	}
 
 	return raw, nil
@@ -181,6 +211,27 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
 	}
+}
+
+// handleSpeakers returns the narrator names installed in the local VOICEPEAK.
+// The list is queried live so newly installed character products and add-on
+// narrators show up without any code change.
+func (s *Server) handleSpeakers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET method is allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	speakers, err := s.narratorLister()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to list speakers: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if speakers == nil {
+		speakers = []string{}
+	}
+
+	writeJSON(w, http.StatusOK, speakers)
 }
 
 func (s *Server) handleAudioQuery(w http.ResponseWriter, r *http.Request) {
