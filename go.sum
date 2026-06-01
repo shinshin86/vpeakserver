@@ -1,4 +1,4 @@
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/shinshin86/vpeak v0.2.0 h1:uF122dPRdcXy9LdP8n85b9MPCoYfEoYvYEkCMqKFERQ=
-github.com/shinshin86/vpeak v0.2.0/go.mod h1:yYLDKkGnHWJyaDTpj3tByMlEng8mfO73O5U3WsqB9LY=
+github.com/shinshin86/vpeak v0.3.0 h1:mbEiiayT8Kp0jWhs0HYkP6/W+3rSsgmSYkFIfMVx9IM=
+github.com/shinshin86/vpeak v0.3.0/go.mod h1:yYLDKkGnHWJyaDTpj3tByMlEng8mfO73O5U3WsqB9LY=

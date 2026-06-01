@@ -79,15 +79,19 @@ go install github.com/shinshin86/vpeakserver@latest
 ## Endpoint
 This repository provides a simple HTTP server for handling audio synthesis requests and a VOICEPEAK user dictionary API. It exposes the following endpoints:
 
-1. `/audio_query`: Accepts a POST request with query parameters to return a JSON-encoded `AudioQuery`.
-2. `/synthesis`: Accepts a POST request with a JSON body that generates and returns an audio file (`.wav`) synthesized using the specified text and speaker.
-3. `/user_dict`: Returns the registered VOICEPEAK user dictionary as a JSON array.
-4. `/user_dict_word`: Adds a user dictionary word.
-5. `/user_dict_word/by-surface/{surface}`: Updates or deletes a user dictionary word by its current `surface`.
-6. `/import_user_dict`: Imports a VOICEPEAK-native dictionary JSON array.
-7. `/setting`: Provides a web interface for configuring CORS settings.
+1. `/speakers`: Accepts a GET request and returns the narrator names installed in the local VOICEPEAK as a JSON array.
+2. `/audio_query`: Accepts a POST request with query parameters to return a JSON-encoded `AudioQuery`.
+3. `/synthesis`: Accepts a POST request with a JSON body that generates and returns an audio file (`.wav`) synthesized using the specified text and speaker.
+4. `/user_dict`: Returns the registered VOICEPEAK user dictionary as a JSON array.
+5. `/user_dict_word`: Adds a user dictionary word.
+6. `/user_dict_word/by-surface/{surface}`: Updates or deletes a user dictionary word by its current `surface`.
+7. `/import_user_dict`: Imports a VOICEPEAK-native dictionary JSON array.
+8. `/setting`: Provides a web interface for configuring CORS settings.
 
 ## Features
+- **Speakers Endpoint**:  
+  Sends a GET request to `/speakers` to retrieve the narrators installed in the local VOICEPEAK as a JSON array (e.g. `["Japanese Female 1", "Zundamon"]`). The list is queried live from VOICEPEAK, so any installed narrator — including character products and add-on narrators — is returned without code changes.
+
 - **Audio Query Endpoint**:  
   Sends a POST request to `/audio_query` with `text` and `speaker` as required query parameters. Optional `emotion`, `speed`, and `pitch` parameters let you mirror the synthesis request and validate them before submission.
 
@@ -98,7 +102,8 @@ This repository provides a simple HTTP server for handling audio synthesis reque
   Adds a VOICEPEAK-native user dictionary API. The server updates VOICEPEAK's actual `dic.json` through [vpeak](https://github.com/shinshin86/vpeak); it does not maintain a separate preprocessing dictionary.
 
 - **Voice Parameter Control**:  
-  - `emotion`: Supports `happy`, `fun`, `angry`, `sad` with optional `0`-`100` weights. Examples: `happy`, `happy=50`, `happy=40,fun=60`. Invalid values return `400 Bad Request`.  
+  - `speaker`: Any narrator installed in the local VOICEPEAK can be specified by the name reported by `/speakers` (e.g. `Zundamon`). The short aliases `f1`–`m3` and `c` are still accepted as input.
+  - `emotion`: Emotion names depend on the selected narrator (e.g. `happy`, `fun`, or character-specific emotions such as `amaama`). Optional `0`-`100` weights, comma-separated for multiple, and a bare name is equivalent to `=100`. Examples: `happy`, `happy=50`, `happy=40,fun=60`. The server validates the syntax (a malformed weight returns `400 Bad Request`); whether an emotion name is supported is determined by VOICEPEAK.  
   - `speed`: Integer in the range `50`–`200`.  
   - `pitch`: Integer in the range `-300`–`300`.
 

@@ -33,10 +33,13 @@ func TestValidateEmotionOption(t *testing.T) {
 		{name: "single weighted", input: "happy=50", want: "happy=50"},
 		{name: "multi weighted", input: "happy=40,fun=60", want: "happy=40,fun=60"},
 		{name: "trim spaces", input: " happy=40,fun=60 ", want: "happy=40,fun=60"},
-		{name: "invalid name", input: "joy=50", wantErr: true},
+		{name: "dynamic name", input: "joy=50", want: "joy=50"},
+		{name: "dynamic bare name", input: "amaama", want: "amaama"},
 		{name: "invalid integer", input: "happy=foo", wantErr: true},
 		{name: "too high", input: "happy=101", wantErr: true},
 		{name: "negative", input: "happy=-1", wantErr: true},
+		{name: "empty value", input: "happy=", wantErr: true},
+		{name: "empty segment", input: "happy=50,,fun=50", wantErr: true},
 	}
 
 	for _, tt := range tests {
@@ -74,7 +77,7 @@ func TestAudioQueryEmotionValidation(t *testing.T) {
 		{name: "single name", emotion: "happy", wantStatus: http.StatusOK, wantBody: "happy"},
 		{name: "single weighted", emotion: "happy=50", wantStatus: http.StatusOK, wantBody: "happy=50"},
 		{name: "multi weighted", emotion: "happy=40,fun=60", wantStatus: http.StatusOK, wantBody: "happy=40,fun=60"},
-		{name: "invalid name", emotion: "joy=50", wantStatus: http.StatusBadRequest},
+		{name: "dynamic name", emotion: "joy=50", wantStatus: http.StatusOK, wantBody: "joy=50"},
 		{name: "invalid integer", emotion: "happy=foo", wantStatus: http.StatusBadRequest},
 		{name: "too high", emotion: "happy=101", wantStatus: http.StatusBadRequest},
 	}
@@ -152,10 +155,11 @@ func TestSynthesisEmotionValidation(t *testing.T) {
 			wantGenerator: true,
 		},
 		{
-			name:            "invalid name",
-			body:            `{"text":"hello","speaker":"f1","emotion":"joy=50"}`,
-			wantStatus:      http.StatusBadRequest,
-			wantErrorSubstr: "Invalid emotion",
+			name:          "dynamic name",
+			body:          `{"text":"hello","speaker":"f1","emotion":"joy=50"}`,
+			wantStatus:    http.StatusOK,
+			wantEmotion:   "joy=50",
+			wantGenerator: true,
 		},
 		{
 			name:            "invalid integer",
@@ -241,4 +245,67 @@ func TestSynthesisEmotionValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHandleSpeakers(t *testing.T) {
+	t.Run("returns installed narrators", func(t *testing.T) {
+		server := newBaseTestServer()
+		server.narratorLister = func() ([]string, error) {
+			return []string{"Japanese Female 1", "Zundamon"}, nil
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/speakers", nil)
+		rec := httptest.NewRecorder()
+		server.Handler().ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+		}
+		if got := rec.Header().Get("Content-Type"); got != "application/json" {
+			t.Fatalf("expected application/json, got %q", got)
+		}
+
+		var got []string
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		want := []string{"Japanese Female 1", "Zundamon"}
+		if len(got) != len(want) {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("got[%d] = %q, want %q", i, got[i], want[i])
+			}
+		}
+	})
+
+	t.Run("lister error returns 500", func(t *testing.T) {
+		server := newBaseTestServer()
+		server.narratorLister = func() ([]string, error) {
+			return nil, errors.New("voicepeak not found")
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/speakers", nil)
+		rec := httptest.NewRecorder()
+		server.Handler().ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusInternalServerError {
+			t.Fatalf("expected 500, got %d", rec.Code)
+		}
+		if !strings.Contains(rec.Body.String(), "Failed to list speakers") {
+			t.Fatalf("unexpected body: %q", rec.Body.String())
+		}
+	})
+
+	t.Run("method not allowed", func(t *testing.T) {
+		server := newBaseTestServer()
+		req := httptest.NewRequest(http.MethodPost, "/speakers", nil)
+		rec := httptest.NewRecorder()
+		server.Handler().ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusMethodNotAllowed {
+			t.Fatalf("expected 405, got %d", rec.Code)
+		}
+	})
 }
