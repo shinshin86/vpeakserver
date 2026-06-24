@@ -65,7 +65,7 @@ go install github.com/shinshin86/vpeakserver@latest
 - By default, the server starts on port `20202`.
 - By default, CORS policy mode is set to `localapps`, which automatically allows requests from `localhost` and `app://` origins.
 - By default, the user dictionary is the VOICEPEAK native dictionary file resolved by `vpeak`. You can override it with `-user-dict-path`.
-- You can specify additional allowed CORS origins using the `-allowed-origin` flag. For example:
+- In `localapps` mode, you can specify additional allowed CORS origins using the `-allowed-origin` flag. Multiple origins can be separated by spaces. For example:
   ```sh
   # Allow access from example.com
   vpeakserver -allowed-origin="https://example.com"
@@ -144,15 +144,15 @@ This repository provides a simple HTTP server for handling audio synthesis reque
   - `pitch`: Integer in the range `-300`–`300`.
 
 - **CORS Support**:  
-  Configurable via the `-allowed-origin` flag, allowing cross-origin requests from a specified domain (default: `http://localhost:3000`) or from any origin by setting `-allowed-origin=*`.
+  The default `localapps` mode allows `localhost` and `app://` origins. Use `-allowed-origin` to add specific origins in `localapps` mode, or use `-cors-policy-mode=all` to allow any origin.
 
 - **Settings Web Interface**:  
   Access http://localhost:20202/setting to configure CORS policies through a user-friendly web interface. The settings page allows you to:
   - Choose between different CORS policy modes:
     - `localapps`: Restricts CORS to `app://` and `localhost` origins, plus any additional origins specified
-    - `all`: Allows all origins (equivalent to setting `-allowed-origin="*"`)
+    - `all`: Allows all origins by returning `Access-Control-Allow-Origin: *`
   - Add specific allowed origins (space-separated for multiple origins)
-  - Changes to these settings take effect immediately but require a server restart for complete application.
+  - Changes to these settings take effect immediately for the running server process.
 
 ## Audio API Examples
 
