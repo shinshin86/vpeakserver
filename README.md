@@ -109,17 +109,20 @@ go build -o vpeakserver .
 - `install.sh` / `install.ps1`: Release binary installers for macOS and Windows.
 - `.github/workflows/release.yml`: Release build workflow.
 
-## Endpoint
+## Endpoints
 This repository provides a simple HTTP server for handling audio synthesis requests and a VOICEPEAK user dictionary API. It exposes the following endpoints:
 
-1. `/speakers`: Accepts a GET request and returns the narrator names installed in the local VOICEPEAK as a JSON array.
-2. `/audio_query`: Accepts a POST request with query parameters to return a JSON-encoded `AudioQuery`.
-3. `/synthesis`: Accepts a POST request with a JSON body that generates and returns an audio file (`.wav`) synthesized using the specified text and speaker.
-4. `/user_dict`: Returns the registered VOICEPEAK user dictionary as a JSON array.
-5. `/user_dict_word`: Adds a user dictionary word.
-6. `/user_dict_word/by-surface/{surface}`: Updates or deletes a user dictionary word by its current `surface`.
-7. `/import_user_dict`: Imports a VOICEPEAK-native dictionary JSON array.
-8. `/setting`: Provides a web interface for configuring CORS settings.
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/speakers` | `GET` | Returns the narrator names installed in the local VOICEPEAK as a JSON array. |
+| `/audio_query` | `POST` | Validates query parameters and returns a JSON-encoded `AudioQuery`. |
+| `/synthesis` | `POST` | Generates and returns a `.wav` audio file from a JSON request body. |
+| `/user_dict` | `GET` | Returns the registered VOICEPEAK user dictionary as a JSON array. |
+| `/user_dict_word` | `POST` | Adds a user dictionary word. |
+| `/user_dict_word/by-surface/{surface}` | `PUT`, `DELETE` | Updates or deletes a user dictionary word by its current `surface`. |
+| `/import_user_dict` | `POST` | Imports a VOICEPEAK-native dictionary JSON array. |
+| `/setting` | `GET` | Provides a web interface for configuring CORS settings. |
+| `/update-settings` | `POST` | Updates CORS settings from the settings web interface. |
 
 ## Features
 - **Speakers Endpoint**:  
@@ -150,6 +153,55 @@ This repository provides a simple HTTP server for handling audio synthesis reque
     - `all`: Allows all origins (equivalent to setting `-allowed-origin="*"`)
   - Add specific allowed origins (space-separated for multiple origins)
   - Changes to these settings take effect immediately but require a server restart for complete application.
+
+## Audio API Examples
+
+Start the server before running these examples:
+
+```sh
+vpeakserver
+```
+
+List available speakers:
+
+```sh
+curl "http://localhost:20202/speakers"
+```
+
+Example response:
+
+```json
+["Japanese Female 1", "Zundamon"]
+```
+
+Create an audio query for a speaker returned by `/speakers`:
+
+```sh
+curl -X POST "http://localhost:20202/audio_query?text=hello&speaker=Zundamon&emotion=happy=50&speed=100&pitch=0"
+```
+
+Example response:
+
+```json
+{
+  "text": "hello",
+  "speaker": "Zundamon",
+  "emotion": "happy=50",
+  "speed": 100,
+  "pitch": 0
+}
+```
+
+Generate a WAV file:
+
+```sh
+curl -X POST "http://localhost:20202/synthesis" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"hello","speaker":"Zundamon","emotion":"happy=50","speed":100,"pitch":0}' \
+  --output output.wav
+```
+
+Use a speaker name returned by `/speakers`. Emotion names vary by narrator; the server validates the emotion syntax, and VOICEPEAK determines whether the selected narrator supports the emotion.
 
 ## User Dictionary API
 
