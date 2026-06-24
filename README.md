@@ -76,6 +76,39 @@ go install github.com/shinshin86/vpeakserver@latest
   vpeakserver -cors-policy-mode="all"
   ```
 
+## Local Development
+
+Clone the repository and run the test suite:
+
+```sh
+go test ./...
+```
+
+Start the server from the working tree:
+
+```sh
+go run .
+```
+
+The server listens on `http://localhost:20202`. Runtime endpoints that call VOICEPEAK require VOICEPEAK to be installed and available on the same machine. The unit tests use test doubles for those paths where possible, so `go test ./...` is the first command to run when validating changes.
+
+Build a local binary:
+
+```sh
+go build -o vpeakserver .
+./vpeakserver --version
+```
+
+## Project Structure
+
+- `main.go`: CLI flags, version output, default dictionary path logging, and HTTP server startup.
+- `server.go`: HTTP routing, CORS handling, audio query and synthesis handlers, and the settings web UI.
+- `user_dict_handler.go`: VOICEPEAK user dictionary HTTP handlers.
+- `user_dict_types.go`: User dictionary request parsing and conversion helpers.
+- `*_test.go`: Unit tests for HTTP handlers, validation, CORS behavior, and dictionary operations.
+- `install.sh` / `install.ps1`: Release binary installers for macOS and Windows.
+- `.github/workflows/release.yml`: Release build workflow.
+
 ## Endpoint
 This repository provides a simple HTTP server for handling audio synthesis requests and a VOICEPEAK user dictionary API. It exposes the following endpoints:
 
